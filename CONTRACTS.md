@@ -74,3 +74,13 @@ clear Pydantic validation error when any required value is absent.
 - The UI adds Incident Feed and Detail, suspected-cause and evidence panels, engineer feedback, Anti-Runbook warnings, Replay Lab comparisons/chart, outcome summaries, and confirmed-retain counts. API failure and empty states are rendered in the UI.
 - Phase 0–5 contracts are unchanged. Phase 6's backend additions are read-only.
 
+## Phase 7 — Stretch features
+
+- `CHAOS_DOJO_ENABLED`, `STALENESS_ENABLED`, and `DEPLOY_RISK_ENABLED` default to `false`. Phase 7 routes return HTTP `404` while their corresponding feature is disabled.
+- `POST /innovation/chaos-dojo` accepts a demo service and a bounded fault type. It creates a clearly synthetic incident, runs normal analysis, applies a scripted verified resolution, and retains it through the configured Hindsight MemoryStore. The incident and retained memory carry the `synthetic=true` tag; the dashboard displays these rows separately.
+- Synthetic feedback is excluded from `GET /stats/outcomes` totals and groupings. Real incident counts and existing statistics retain their Phase 4 behavior.
+- `GET /stats/memory/origins` returns separate feedback and confirmed-retain counts for real and synthetic incidents; the Phase 6 `/stats/memory` response remains unchanged.
+- `GET /incidents/{incident_id}/staleness` compares verified incidents for the same service and matching signature/symptoms. Contradictions return both incident IDs, both causes, timestamps, and `possibly outdated` status; neither memory is deleted or hidden. Synthetic incidents are not conflict sources.
+- `POST /innovation/deploy-risk` recalls change-related evidence through Hindsight. It separates historical and synthetic evidence and reports no probability or deploy/no-deploy decision. Unavailable memory returns an explicit empty result.
+- All Phase 0–6 contracts remain compatible; all Phase 7 capabilities are additive and default off.
+

@@ -7,10 +7,12 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 ## Current status
 
-**Phase 6 complete:** the FastAPI baseline, official Hindsight memory wrapper,
+**Phase 7 complete:** the FastAPI baseline, official Hindsight memory wrapper,
 incident ingestion and grounded analysis, engineer feedback, Replay Lab,
 Anti-Runbooks, cached Reflect Insights, and Streamlit dashboard are available.
-Phase 7 stretch features and Phase 8 hardening remain.
+Default-off Chaos Dojo, memory staleness detection, and deploy-risk evidence
+lookup are also available. Synthetic and real feedback counts are displayed
+separately. Phase 8 hardening remains.
 
 ## 10-line implementation plan
 
@@ -168,6 +170,29 @@ evidence, recommendations, Anti-Runbook warnings, engineer feedback, Replay Lab
 comparison/chart, and feedback/confirmed-retain counts. Its API client talks
 only to FastAPI. See [tests/phase6/MANUAL.md](tests/phase6/MANUAL.md) for the
 demo screenshot checklist and empty/error-state checks.
+
+## Phase 7 stretch features
+
+Experimental features are disabled by default. Set only the flags you want to
+enable in `.env`:
+
+```dotenv
+CHAOS_DOJO_ENABLED=true
+STALENESS_ENABLED=true
+DEPLOY_RISK_ENABLED=true
+```
+
+Chaos Dojo generates a tagged synthetic scenario, analyzes it, and retains a
+scripted resolution through Hindsight. Synthetic examples appear separately in
+the dashboard and are excluded from verified outcome statistics. Check for
+contradictory verified memories with
+`GET /incidents/{incident_id}/staleness`. Submit a change description to
+`POST /innovation/deploy-risk` to retrieve related historical evidence; the
+response provides evidence for review and does not assign a risk score or make
+a deployment decision. `GET /stats/memory/origins` separates real and
+synthetic retain counts without changing the Phase 6 memory-stats contract.
+Review the `CHAOS_DOJO_ENABLED`, `STALENESS_ENABLED`,
+and `DEPLOY_RISK_ENABLED` flags before exposing these experimental endpoints.
 
 ## BAND Desktop (hackathon collaboration requirement)
 

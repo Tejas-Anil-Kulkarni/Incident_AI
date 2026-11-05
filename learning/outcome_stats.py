@@ -13,6 +13,7 @@ class FeedbackEntry(BaseModel):
     category: str | None = None
     verified_cause: str
     outcome: Outcome
+    synthetic: bool = False
 
 
 class CategoryOutcomeStats(BaseModel):
@@ -40,6 +41,7 @@ class OutcomeStatsResponse(BaseModel):
 
 
 def compute_outcome_stats(entries: list[FeedbackEntry]) -> OutcomeStatsResponse:
+    entries = [entry for entry in entries if not entry.synthetic]
     outcomes: Counter[str] = Counter(entry.outcome for entry in entries)
     categories: dict[str, Counter[str]] = defaultdict(Counter)
     resolutions: dict[str, Counter[str]] = defaultdict(Counter)

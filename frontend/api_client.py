@@ -37,6 +37,9 @@ class IncidentMindApi:
     def memory_stats(self) -> dict:
         return self._request("GET", "/stats/memory")
 
+    def memory_origin_stats(self) -> dict:
+        return self._request("GET", "/stats/memory/origins")
+
     def _request(self, method: str, path: str, payload: dict | None = None):
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
         request = Request(

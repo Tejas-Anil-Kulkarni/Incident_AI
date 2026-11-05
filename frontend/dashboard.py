@@ -38,7 +38,15 @@ def render_feed_and_detail() -> None:
             "Status": row["feedback_outcome"] or "open",
             "Created": incident["created_at"],
         })
-    st.dataframe(feed, use_container_width=True, hide_index=True)
+    real_feed = [row for row in feed if not next(item["synthetic"] for item in rows if item["incident"]["id"] == row["ID"])]
+    synthetic_feed = [row for row in feed if next(item["synthetic"] for item in rows if item["incident"]["id"] == row["ID"])]
+    if real_feed:
+        st.subheader("Real incidents")
+        st.dataframe(real_feed, use_container_width=True, hide_index=True)
+    if synthetic_feed:
+        st.subheader("Synthetic Chaos Dojo scenarios")
+        st.caption("These generated examples are displayed separately and excluded from verified outcome statistics.")
+        st.dataframe(synthetic_feed, use_container_width=True, hide_index=True)
 
     selected = st.selectbox("Incident details", [row["ID"] for row in feed], format_func=lambda value: next(
         f"{row['Service']} · {row['Severity']} · {row['ID']}" for row in feed if row["ID"] == value
@@ -167,14 +175,16 @@ def render_learning() -> None:
     st.header("Learning and memory")
     try:
         memory = api.memory_stats()
+        origins = api.memory_origin_stats()
         outcomes = api.outcome_stats()
     except ApiError as error:
         show_error(error)
         return
-    first, second, third = st.columns(3)
+    first, second, third, fourth = st.columns(4)
     first.metric("Engineer feedback records", memory["feedback_records"])
-    second.metric("Verified incidents retained in Hindsight", memory["retained_in_hindsight"])
-    third.metric("Hindsight retention not confirmed", memory["feedback_records"] - memory["retained_in_hindsight"])
+    second.metric("Real incidents retained", origins["real_retained_in_hindsight"])
+    third.metric("Synthetic examples retained", origins["synthetic_retained_in_hindsight"])
+    fourth.metric("Total confirmed retains", memory["retained_in_hindsight"])
     st.caption("Counts come from local feedback records and confirmed Retain responses; this is not a live Hindsight bank inventory.")
     st.subheader("Recorded outcomes")
     st.json(outcomes)
