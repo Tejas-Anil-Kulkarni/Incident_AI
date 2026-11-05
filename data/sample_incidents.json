@@ -1,0 +1,38 @@
+[
+  {
+    "id": "sample-db-pool-001",
+    "service": "payments-api",
+    "error": "Database connection pool exhausted",
+    "severity": "high",
+    "symptoms": ["request timeouts", "connection acquisition failures"],
+    "logs_excerpt": "Timeout waiting for a connection from the pool after 30000ms",
+    "suspected_cause": "Connection pool saturation",
+    "verified_cause": "Unclosed database sessions exhausted the pool",
+    "resolution_steps": ["Restarted workers", "Fixed session cleanup", "Raised pool alert threshold"],
+    "outcome": "resolved",
+    "tags": ["database", "connection-pool", "sample", "synthetic"]
+  },
+  {
+    "id": "sample-api-timeout-002",
+    "service": "catalog-api",
+    "error": "Upstream request timed out",
+    "severity": "medium",
+    "symptoms": ["elevated latency", "upstream timeout responses"],
+    "logs_excerpt": "GET /items upstream timeout after 10s",
+    "suspected_cause": "Slow upstream dependency",
+    "outcome": "partial",
+    "resolution_steps": ["Reduced request concurrency"],
+    "tags": ["api", "timeout", "sample", "synthetic"]
+  },
+  {
+    "id": "sample-worker-failure-003",
+    "service": "notification-worker",
+    "error": "Repeated task retries",
+    "severity": "low",
+    "symptoms": ["queue backlog", "duplicate retries"],
+    "logs_excerpt": "Task exceeded retry limit and moved to dead letter queue",
+    "outcome": "failed",
+    "resolution_steps": ["Increased retry count"],
+    "tags": ["worker", "queue", "sample", "synthetic"]
+  }
+]

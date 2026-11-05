@@ -19,3 +19,13 @@ extend them only additively.
 `GROQ_API_KEY`, and `MODEL_NAME` from the environment or `.env`. It raises a
 clear Pydantic validation error when any required value is absent.
 
+## Phase 1 — Hindsight memory
+
+- `Incident` is the validated incident-memory payload, with a stable string ID and explicit outcome enum.
+- `MemoryStore.retain_incident(incident)` returns `RetainResult`; service errors are represented without leaking secrets.
+- `MemoryStore.recall_similar(query, k)` returns `list[MemoryEvidence]`, including the exact raw Hindsight text.
+- `MemoryStore.reflect(question)` returns `ReflectResult` with answer text and any available raw evidence.
+- `FakeMemory` implements the same async interface for unit tests only; production construction always selects the official Hindsight client.
+- `python -m hindsight_memory.demo` runs a retain-then-recall example against configured Hindsight.
+- `GET /health` remains unchanged from Phase 0.
+

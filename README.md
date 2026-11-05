@@ -27,30 +27,26 @@ their respective gated phases.
 
 ## Hindsight verification and intended integration
 
-Before implementation, the official documentation and a shallow clone of the
-official repository were inspected. The verified Python package is
+Before implementation, the official documentation and repository source were
+inspected, including the Python client implementation and its operation tests.
+The verified Python package is
 `hindsight-client`; its client class is `hindsight_client.Hindsight`. The
 repository’s implementation is in
 `hindsight-clients/python/hindsight_client/hindsight_client.py`, with behavioral
 tests in `hindsight-clients/python/tests/`, notably `test_main_operations.py`,
 `test_async_sync_parity.py`, and the Retain/Recall/Reflect option tests.
 
-Phase 1 will install that official package and use its supported async methods
-inside FastAPI: `Hindsight(base_url=..., api_key=..., timeout=...)`,
-`await client.acreate_bank(...)`, `await client.aretain(...)`,
-`await client.arecall(...)`, and `await client.areflect(...)`. The wrapper will
-adapt official response models to IncidentMind typed evidence results; it will
-not implement vector search, fact extraction, graph retrieval, or reflection
-itself. Hindsight remains the only memory layer.
-
-The exact API choices will be rechecked against the pinned installed client and
-the cloned official repository before Phase 1 code is written. The official
-client documents synchronous helpers for scripts, but its source explicitly
-prefers `a*` methods in async frameworks such as FastAPI.
+Phase 1 installs that official package and adapts its documented `Hindsight`
+client. The current client source exposes `create_bank`, `retain`, `recall`,
+and `reflect` as synchronous convenience methods; the application runs these
+calls in worker threads so FastAPI's event loop remains responsive. The wrapper
+adapts official response models to IncidentMind typed evidence results; it does
+not implement vector search, fact extraction, graph retrieval, or reflection.
+Hindsight remains the only memory layer.
 
 ## Hindsight assumptions to verify in Phase 1
 
-- The installed `hindsight-client` version matches the inspected client API.
+- The installed `hindsight-client` version matches the documented client API.
 - Cloud authentication accepts `api_key` as the documented bearer token.
 - The configured Hindsight endpoint supports bank creation and the `incidentmind` bank ID.
 - `create_bank` is idempotent enough for create-or-retrieve behavior, or the
@@ -77,6 +73,14 @@ credentials are populated. Run tests with:
 ```powershell
 pytest
 ```
+
+## Phase 1 memory demo
+
+With a Hindsight service reachable at `HINDSIGHT_BASE_URL` and its API key in
+`.env`, run `python -m hindsight_memory.demo` to retain an incident and recall
+similar evidence. To load the bundled, explicitly synthetic sample incidents,
+run `python -m hindsight_memory.seed`. Unit tests use `FakeMemory`; production
+code always constructs `HindsightMemory` with the official SDK.
 
 ## BAND Desktop (hackathon collaboration requirement)
 
