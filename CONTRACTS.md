@@ -48,3 +48,12 @@ clear Pydantic validation error when any required value is absent.
 - Categories map to Markdown files in `runbooks/`; successful steps are merged only from recalled incidents whose stored outcome is `resolved`.
 - Recommendations require engineer review and are never executed by this route. `/health`, `/incidents`, `/incidents/{id}`, and Phase 1 memory interfaces are unchanged.
 
+## Phase 4 — Engineer feedback and learning
+
+- `POST /incidents/{incident_id}/feedback` records a verified cause, steps taken, outcome, notes, and optional idempotency key; exact duplicate submissions do not retain another memory.
+- Feedback sets `verified_cause` and `outcome` while preserving `suspected_cause`; the verified incident is retained through the Phase 1 `MemoryStore` when available.
+- Failed feedback returns a warning and appears as a warning in later analysis when recalled. Resolved historical steps are surfaced before generic recommendations when evidence supports them.
+- `GET /stats/outcomes` returns outcome, category, and verified-cause counts from stored feedback. Resolution labels use count text such as `2 of 3 recorded`; no percentages or success rates are synthesized.
+- `POST /incidents/{incident_id}/approve-action` records an engineer's approval for an exact action ID and description. `POST /incidents/{incident_id}/execute-action` rejects unapproved actions and only writes a simulation log; `executed` is always `false`.
+- Phase 0–3 routes, schemas, memory interfaces, and contracts remain compatible.
+

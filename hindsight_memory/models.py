@@ -20,6 +20,7 @@ class Incident(BaseModel):
     logs_excerpt: str = Field(default="", max_length=50_000)
     suspected_cause: str | None = None
     verified_cause: str | None = None
+    engineer_notes: str | None = Field(default=None, max_length=20_000)
     resolution_steps: list[str] = Field(default_factory=list)
     outcome: Literal["resolved", "failed", "partial", "unknown"] = "unknown"
     category: Literal["Database", "API", "Overload", "Network", "Deployment", "Performance"] | None = None

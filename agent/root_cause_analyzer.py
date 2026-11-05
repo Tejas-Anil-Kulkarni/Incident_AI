@@ -7,7 +7,12 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from agent.llm_client import GroqChatModel
-from agent.runbook_recommender import evidence_incident_id, runbook_steps, successful_resolution_steps
+from agent.runbook_recommender import (
+    evidence_incident_id,
+    failed_resolution_warnings,
+    runbook_steps,
+    successful_resolution_steps,
+)
 from config.settings import get_settings
 from hindsight_memory.hindsight_client import HindsightMemory, MemoryStore
 from hindsight_memory.models import Incident, MemoryEvidence
@@ -85,6 +90,7 @@ class RootCauseAnalyzer:
                 else item
                 for item in evidence
             ]
+        historical_warnings = failed_resolution_warnings(evidence)
 
         if not evidence or memory_error or self.llm is None:
             available = self.memory is not None and not memory_error
@@ -101,6 +107,7 @@ class RootCauseAnalyzer:
                 cold_start=not evidence,
                 memory_available=available,
                 used_fallback=True,
+                warnings=historical_warnings,
                 message=message,
             )
 
@@ -113,10 +120,11 @@ class RootCauseAnalyzer:
                 cold_start=False,
                 memory_available=True,
                 used_fallback=True,
+                warnings=historical_warnings,
                 message="AI analysis failed validation or was unavailable. Recommendations are based on the runbook only.",
             )
 
-        warnings: list[str] = []
+        warnings: list[str] = list(historical_warnings)
         allowed_ids = {item.incident_id for item in evidence if item.incident_id}
         hypotheses: list[Hypothesis] = []
         for hypothesis in draft.hypotheses:
@@ -130,8 +138,8 @@ class RootCauseAnalyzer:
                 })
             )
         recommendations = list(dict.fromkeys(
-            [step.strip() for step in draft.recommended_steps if step.strip()]
-            + successful_resolution_steps(evidence)
+            successful_resolution_steps(evidence)
+            + [step.strip() for step in draft.recommended_steps if step.strip()]
             + safe_steps
         ))
         return AnalysisResponse(

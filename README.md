@@ -7,11 +7,10 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 ## Current status
 
-**Phase 3 complete:** the FastAPI baseline and health contract, official
-Hindsight memory wrapper, alert ingestion and SQLite persistence, and
-evidence-grounded root-cause analysis with safe runbook recommendations are
-available. Feedback learning, innovation features, and the dashboard remain
-for their later gated phases.
+**Phase 4 complete:** the FastAPI baseline and health contract, official
+Hindsight memory wrapper, alert ingestion, grounded analysis and runbooks, and
+engineer feedback with computed outcome counts are available. Innovation
+features and the dashboard remain for their later gated phases.
 
 ## 10-line implementation plan
 
@@ -114,6 +113,26 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/incidents/$($incident
 The analysis response shows retrieved memory text, suspected hypotheses,
 runbook recommendations, and whether cold-start or fallback behavior applied.
 Every recommendation is for engineer review; IncidentMind does not execute it.
+
+## Phase 4 feedback and approval
+
+Submit engineer verification with `POST /incidents/{incident_id}/feedback`.
+Feedback is stored idempotently, and verified incident details are retained in
+Hindsight when the service is available. `GET /stats/outcomes` reports recorded
+counts such as `2 of 3 recorded`; it does not calculate unsupported rates.
+
+Any action simulation requires a matching engineer approval first:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/incidents/$($incident.id)/approve-action" `
+  -ContentType 'application/json' `
+  -Body '{"action_id":"restart-workers","action":"Restart the affected workers","approved_by":"engineer@example.test"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/incidents/$($incident.id)/execute-action" `
+  -ContentType 'application/json' `
+  -Body '{"action_id":"restart-workers"}'
+```
+
+The second route only records a simulation; it never runs a recovery action.
 
 ## BAND Desktop (hackathon collaboration requirement)
 

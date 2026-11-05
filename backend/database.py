@@ -33,6 +33,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 def init_database() -> None:
     from backend.models import IncidentRecord
+    from learning.models import ActionApproval, ActionSimulation, FeedbackRecord
 
     Base.metadata.create_all(bind=engine)
 

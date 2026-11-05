@@ -72,5 +72,24 @@ def successful_resolution_steps(evidence: list[MemoryEvidence]) -> list[str]:
     return _unique(suggestions)
 
 
+def failed_resolution_warnings(evidence: list[MemoryEvidence]) -> list[str]:
+    """Surface engineer-recorded failures without treating them as successful fixes."""
+
+    warnings: list[str] = []
+    for item in evidence:
+        record = parse_incident_memory(item)
+        if not record or record.get("outcome") != "failed":
+            continue
+        incident_id = str(record.get("id") or evidence_incident_id(item) or "historical")
+        cause = str(record.get("verified_cause") or record.get("error") or "cause not recorded")
+        steps = [step.strip() for step in record.get("resolution_steps", []) if isinstance(step, str) and step.strip()]
+        attempted = "; ".join(steps) if steps else "no recovery steps were recorded"
+        warnings.append(
+            f"Historical warning: incident {incident_id} ended in failure. "
+            f"Recorded cause: {cause}. Steps taken: {attempted}. Review before reuse."
+        )
+    return _unique(warnings)
+
+
 def _unique(values: list[str]) -> list[str]:
     return list(dict.fromkeys(value for value in values if value.strip()))
