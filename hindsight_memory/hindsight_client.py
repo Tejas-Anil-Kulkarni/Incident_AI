@@ -25,15 +25,31 @@ class HindsightMemory:
 
     BANK_ID = "incidentmind"
 
-    def __init__(self, client: Any, *, retries: int = 2, backoff_seconds: float = 0.25, bank_ready: bool = True) -> None:
+    def __init__(
+        self,
+        client: Any,
+        *,
+        retries: int = 2,
+        backoff_seconds: float = 0.25,
+        bank_ready: bool = True,
+        bank_id: str = BANK_ID,
+    ) -> None:
         self._client = client
         self._retries = max(0, retries)
         self._backoff_seconds = max(0.0, backoff_seconds)
         self._bank_ready = bank_ready
+        self.bank_id = bank_id
         self.last_error: str | None = None
 
     @classmethod
-    async def connect(cls, settings: Any, *, retries: int = 2, backoff_seconds: float = 0.25) -> "HindsightMemory":
+    async def connect(
+        cls,
+        settings: Any,
+        *,
+        retries: int = 2,
+        backoff_seconds: float = 0.25,
+        bank_id: str = BANK_ID,
+    ) -> "HindsightMemory":
         """Create/retrieve the stable bank using Hindsight's create-or-update API."""
 
         from hindsight_client import Hindsight
@@ -43,7 +59,7 @@ class HindsightMemory:
             api_key=settings.hindsight_api_key.get_secret_value(),
             timeout=10.0,
         )
-        instance = cls(client, retries=retries, backoff_seconds=backoff_seconds, bank_ready=False)
+        instance = cls(client, retries=retries, backoff_seconds=backoff_seconds, bank_ready=False, bank_id=bank_id)
         try:
             await instance._ensure_bank()
         except Exception as exc:
@@ -58,7 +74,7 @@ class HindsightMemory:
         try:
             await self._ensure_bank()
             response = await self._call(lambda: self._client.retain(
-                bank_id=self.BANK_ID,
+                bank_id=self.bank_id,
                 content=content,
                 context=f"Incident {incident.id} for service {incident.service}",
                 document_id=f"incident-{incident.id}",
@@ -82,7 +98,7 @@ class HindsightMemory:
         try:
             await self._ensure_bank()
             response = await self._call(lambda: self._client.recall(
-                bank_id=self.BANK_ID,
+                bank_id=self.bank_id,
                 query=query,
                 max_tokens=max(256, min(8192, k * 1200)),
                 include_chunks=True,
@@ -98,7 +114,7 @@ class HindsightMemory:
     async def reflect(self, question: str) -> ReflectResult:
         try:
             await self._ensure_bank()
-            response = await self._call(lambda: self._client.reflect(bank_id=self.BANK_ID, query=question))
+            response = await self._call(lambda: self._client.reflect(bank_id=self.bank_id, query=question))
             self.last_error = None
             return adapt_reflect(response)
         except Exception as exc:
@@ -115,7 +131,7 @@ class HindsightMemory:
         if self._bank_ready:
             return
         await self._call(lambda: self._client.create_bank(
-            bank_id=self.BANK_ID,
+            bank_id=self.bank_id,
             name="IncidentMind",
             reflect_mission="Analyze verified and suspected incident history. Distinguish evidence from hypotheses.",
         ))

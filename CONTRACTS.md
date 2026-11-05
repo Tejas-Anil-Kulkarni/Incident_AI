@@ -57,3 +57,12 @@ clear Pydantic validation error when any required value is absent.
 - `POST /incidents/{incident_id}/approve-action` records an engineer's approval for an exact action ID and description. `POST /incidents/{incident_id}/execute-action` rejects unapproved actions and only writes a simulation log; `executed` is always `false`.
 - Phase 0–3 routes, schemas, memory interfaces, and contracts remain compatible.
 
+## Phase 5 — Memory innovation
+
+- `POST /innovation/replay` accepts an ordered list of 1–50 stored incident IDs and evaluates that same sequence with memory disabled and with isolated Hindsight memory. It reports per-incident citations, matching verified cause, position to verified fix when measurable, and chart-ready metrics; unverified truth remains `null` rather than being scored.
+- Replay analysis masks the current incident's verified cause, outcome, resolution steps, and notes before making recommendations, preventing label leakage. Each replay has a unique Hindsight bank ID returned in the response.
+- `POST /incidents/{incident_id}/analyze?innovation_enabled=true` adds structured anti-runbook warnings from recalled engineer feedback. A warning is issued only when a relevant attempted step has recorded failure evidence; it includes the failed/attempted count, incident IDs, and available failure context. Default analysis remains compatible.
+- `POST /innovation/insights` accepts a question and optional `refresh`. It calls the Phase 1 Hindsight Reflect interface, stores answers in SQLite for five minutes, and returns the source and cache timestamp. When Reflect is unavailable or unsuccessful, the endpoint returns an explicitly labeled SQLite fallback grounded in engineer feedback.
+- `reflect_insight_cache` is created with the application database tables. Cached fallback answers are timestamped and cached as well.
+- Phase 0–4 routes and response fields remain compatible; Phase 5 adds routes and opt-in fields only.
+

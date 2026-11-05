@@ -16,6 +16,7 @@ from agent.runbook_recommender import (
 from config.settings import get_settings
 from hindsight_memory.hindsight_client import HindsightMemory, MemoryStore
 from hindsight_memory.models import Incident, MemoryEvidence
+from innovation.anti_runbooks import AntiRunbookWarning, build_anti_runbook_warnings
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ class AnalysisResponse(BaseModel):
     memory_available: bool
     used_fallback: bool
     warnings: list[str] = Field(default_factory=list)
+    anti_runbook_warnings: list[AntiRunbookWarning] = Field(default_factory=list)
     message: str
 
 
@@ -70,13 +72,15 @@ class RootCauseAnalyzer:
         *,
         model_name: str = "openai/gpt-oss-120b",
         top_k: int = 5,
+        use_llm_without_memory: bool = False,
     ) -> None:
         self.memory = memory
         self.llm = llm
         self.model_name = model_name
         self.top_k = max(1, min(10, top_k))
+        self.use_llm_without_memory = use_llm_without_memory
 
-    async def analyze(self, incident: Incident) -> AnalysisResponse:
+    async def analyze(self, incident: Incident, *, innovation_enabled: bool = False) -> AnalysisResponse:
         runbook_ref, safe_steps = runbook_steps(incident.category)
         evidence: list[MemoryEvidence] = []
         memory_error = self.memory is None
@@ -91,8 +95,11 @@ class RootCauseAnalyzer:
                 for item in evidence
             ]
         historical_warnings = failed_resolution_warnings(evidence)
+        anti_runbooks = build_anti_runbook_warnings(evidence) if innovation_enabled else []
+        if innovation_enabled:
+            historical_warnings.extend(item.message for item in anti_runbooks)
 
-        if not evidence or memory_error or self.llm is None:
+        if (not evidence and (not self.use_llm_without_memory or memory_error)) or memory_error or self.llm is None:
             available = self.memory is not None and not memory_error
             if not available:
                 message = "Hindsight memory is unavailable; no historical evidence is being claimed."
@@ -108,6 +115,7 @@ class RootCauseAnalyzer:
                 memory_available=available,
                 used_fallback=True,
                 warnings=historical_warnings,
+                anti_runbook_warnings=anti_runbooks,
                 message=message,
             )
 
@@ -121,6 +129,7 @@ class RootCauseAnalyzer:
                 memory_available=True,
                 used_fallback=True,
                 warnings=historical_warnings,
+                anti_runbook_warnings=anti_runbooks,
                 message="AI analysis failed validation or was unavailable. Recommendations are based on the runbook only.",
             )
 
@@ -146,11 +155,17 @@ class RootCauseAnalyzer:
             incident_id=incident.id,
             analysis=AnalysisDraft(hypotheses=hypotheses, recommended_steps=recommendations, runbook_ref=runbook_ref),
             evidence=evidence,
-            cold_start=False,
+            cold_start=not evidence,
             memory_available=True,
             used_fallback=False,
             warnings=warnings,
-            message="Analysis uses recalled incident evidence; all causes remain suspected until engineer verification.",
+            anti_runbook_warnings=anti_runbooks,
+            message=(
+                "No relevant experience found in memory. Analysis used the current incident only; "
+                "no historical claims were accepted."
+                if not evidence
+                else "Analysis uses recalled incident evidence; all causes remain suspected until engineer verification."
+            ),
         )
 
     async def _generate(self, incident: Incident, evidence: list[MemoryEvidence]) -> AnalysisDraft | None:

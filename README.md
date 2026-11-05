@@ -7,10 +7,10 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 ## Current status
 
-**Phase 4 complete:** the FastAPI baseline and health contract, official
-Hindsight memory wrapper, alert ingestion, grounded analysis and runbooks, and
-engineer feedback with computed outcome counts are available. Innovation
-features and the dashboard remain for their later gated phases.
+**Phase 5 complete:** the FastAPI baseline, official Hindsight memory wrapper,
+incident ingestion and grounded analysis, engineer feedback, Replay Lab,
+Anti-Runbooks, and cached Reflect Insights are available. The dashboard and
+later hardening phase remain.
 
 ## 10-line implementation plan
 
@@ -133,6 +133,25 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/incidents/$($incident
 ```
 
 The second route only records a simulation; it never runs a recovery action.
+
+## Phase 5 memory innovation
+
+`POST /innovation/replay` compares recommendations for the same ordered stored
+incidents with memory disabled and enabled. Each run uses an isolated Hindsight
+bank; response metrics include cited prior incidents and steps to a verified
+fix only when a stored engineer resolution can be measured. Truth fields are
+masked from the current incident during analysis.
+
+Pass `innovation_enabled=true` to
+`POST /incidents/{incident_id}/analyze` to include Anti-Runbook warnings based
+on failed engineer-reported fixes. Warnings include recorded failed/attempted
+counts and incident context. The flag is off by default.
+
+`POST /innovation/insights` accepts `{"question":"Which fixes failed?"}` and
+returns a Hindsight Reflect result cached in SQLite for five minutes. If
+Hindsight Reflect is unavailable, it returns a clearly labeled fallback
+computed only from persisted engineer feedback. Set `refresh: true` to bypass
+the cache. Run `pytest` for the complete compatibility suite.
 
 ## BAND Desktop (hackathon collaboration requirement)
 

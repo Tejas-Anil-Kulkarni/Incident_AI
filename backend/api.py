@@ -2,17 +2,21 @@
 
 import json
 from datetime import datetime, timezone
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from agent.llm_client import GroqChatModel
 from agent.root_cause_analyzer import AnalysisResponse, RootCauseAnalyzer, get_root_cause_analyzer
 from backend.database import get_db
 from backend.models import IncidentRecord
+from config.settings import get_settings
 from hindsight_memory.dependencies import get_memory_store
+from hindsight_memory.hindsight_client import HindsightMemory
 from hindsight_memory.models import Incident
 from incident_processing.incident_detector import AlertPayload, detect_incident
 from learning.feedback_processor import (
@@ -26,6 +30,8 @@ from learning.feedback_processor import (
 )
 from learning.models import ActionApproval, ActionSimulation, FeedbackRecord
 from learning.outcome_stats import FeedbackEntry, OutcomeStatsResponse, compute_outcome_stats
+from innovation.replay_lab import ReplayLab, ReplayLabResult, ReplayRequest
+from innovation.reflect_insights import ReflectInsightRequest, ReflectInsightResponse, reflect_insight
 
 router = APIRouter()
 
@@ -76,6 +82,7 @@ def get_incident(incident_id: str, db: Session = Depends(get_db)) -> Incident:
 @router.post("/incidents/{incident_id}/analyze", response_model=AnalysisResponse, tags=["incidents"])
 async def analyze_incident(
     incident_id: str,
+    innovation_enabled: bool = False,
     db: Session = Depends(get_db),
     analyzer: RootCauseAnalyzer = Depends(get_root_cause_analyzer),
 ) -> AnalysisResponse:
@@ -85,7 +92,7 @@ async def analyze_incident(
     if record is None:
         raise HTTPException(status_code=404, detail="Incident not found.")
     incident = Incident.model_validate(json.loads(record.payload_json))
-    return await analyzer.analyze(incident)
+    return await analyzer.analyze(incident, innovation_enabled=innovation_enabled)
 
 
 @router.post("/incidents/{incident_id}/feedback", response_model=FeedbackResponse, tags=["incidents"])
@@ -191,4 +198,76 @@ def simulate_approved_action(
         db.rollback()
         raise HTTPException(status_code=503, detail="Action simulation could not be logged.") from exc
     return ActionSimulationResponse(incident_id=incident_id, action_id=request.action_id)
+
+
+@router.post("/innovation/replay", response_model=ReplayLabResult, tags=["innovation"])
+async def replay_incidents(request: ReplayRequest, db: Session = Depends(get_db)) -> ReplayLabResult:
+    """Replay a stored incident sequence in an isolated Hindsight bank."""
+
+    records = list(db.scalars(select(IncidentRecord).where(IncidentRecord.id.in_(request.incident_ids))).all())
+    by_id = {item.id: item for item in records}
+    missing = [item for item in request.incident_ids if item not in by_id]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Incident not found: {missing[0]}")
+
+    feedback_rows = list(db.scalars(
+        select(FeedbackRecord)
+        .where(FeedbackRecord.incident_id.in_(request.incident_ids))
+        .order_by(FeedbackRecord.created_at.asc())
+    ).all())
+    feedback_by_incident = {item.incident_id: item for item in feedback_rows}
+    sequence: list[Incident] = []
+    for incident_id in request.incident_ids:
+        incident = Incident.model_validate_json(by_id[incident_id].payload_json)
+        feedback = feedback_by_incident.get(incident_id)
+        if feedback is not None:
+            incident = incident.model_copy(update={
+                "verified_cause": feedback.verified_cause,
+                "resolution_steps": json.loads(feedback.steps_json),
+                "outcome": feedback.outcome,
+                "engineer_notes": feedback.notes or None,
+            })
+        sequence.append(incident)
+
+    try:
+        settings = get_settings()
+    except ValidationError as exc:
+        raise HTTPException(status_code=503, detail="Replay requires configured Hindsight and Groq credentials.") from exc
+
+    run_id = uuid4().hex
+    bank_id = f"incidentmind-replay-{run_id[:12]}"
+    try:
+        memory = await HindsightMemory.connect(settings, bank_id=bank_id)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Replay Hindsight bank could not be initialized.") from exc
+    if memory.last_error:
+        await memory.close()
+        raise HTTPException(status_code=503, detail="Replay Hindsight bank is unavailable.")
+    llm = GroqChatModel(settings.groq_api_key.get_secret_value())
+    try:
+        return await ReplayLab(llm, model_name=settings.model_name).run(
+            sequence,
+            memory,
+            run_id=run_id,
+            memory_bank_id=bank_id,
+        )
+    finally:
+        await memory.close()
+        await llm.close()
+
+
+@router.post("/innovation/insights", response_model=ReflectInsightResponse, tags=["innovation"])
+async def get_innovation_insight(
+    request: ReflectInsightRequest,
+    db: Session = Depends(get_db),
+    memory=Depends(get_memory_store),
+) -> ReflectInsightResponse:
+    """Reflect on retained incidents, caching the result with a local fallback."""
+
+    return await reflect_insight(
+        question=request.question,
+        db=db,
+        memory=memory,
+        refresh=request.refresh,
+    )
 
