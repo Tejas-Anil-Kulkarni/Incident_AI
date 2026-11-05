@@ -9,15 +9,20 @@ def adapt_recall(response: Any, limit: int) -> list[MemoryEvidence]:
     """Adapt documented RecallResponse.results without changing the evidence text."""
 
     results = getattr(response, "results", None) or []
+    chunks = getattr(response, "chunks", None) or {}
     evidence: list[MemoryEvidence] = []
     for item in results[:limit]:
         text = str(getattr(item, "text", "") or "")
         if not text:
             continue
+        chunk_id = getattr(item, "chunk_id", None)
+        chunk = chunks.get(chunk_id) if chunk_id else None
+        source_text = getattr(chunk, "text", None) if chunk else None
         evidence.append(
             MemoryEvidence(
                 text=text,
                 raw_text=text,
+                source_text=str(source_text) if source_text else None,
                 memory_id=_optional_str(getattr(item, "id", None)),
                 relevance=_optional_float(getattr(item, "relevance", getattr(item, "score", None))),
             )

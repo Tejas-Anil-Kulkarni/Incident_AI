@@ -12,5 +12,5 @@ def test_official_sdk_exposes_methods_and_parameters_used_by_adapter() -> None:
         "bank_id", "content", "context", "document_id", "metadata", "tags",
         "retain_async", "operation_id",
     } <= set(inspect.signature(Hindsight.retain).parameters)
-    assert {"bank_id", "query", "max_tokens"} <= set(inspect.signature(Hindsight.recall).parameters)
+    assert {"bank_id", "query", "max_tokens", "include_chunks", "max_chunk_tokens"} <= set(inspect.signature(Hindsight.recall).parameters)
     assert {"bank_id", "query"} <= set(inspect.signature(Hindsight.reflect).parameters)

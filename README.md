@@ -7,11 +7,11 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 ## Current status
 
-**Phase 2 complete:** the FastAPI baseline and health contract, official
-Hindsight memory wrapper, alert ingestion, deterministic log analysis and
-classification, and SQLite incident persistence are available. AI analysis,
-feedback learning, innovation features, and the dashboard remain for their
-later gated phases.
+**Phase 3 complete:** the FastAPI baseline and health contract, official
+Hindsight memory wrapper, alert ingestion and SQLite persistence, and
+evidence-grounded root-cause analysis with safe runbook recommendations are
+available. Feedback learning, innovation features, and the dashboard remain
+for their later gated phases.
 
 ## 10-line implementation plan
 
@@ -97,6 +97,23 @@ The response includes a generated incident ID, category, severity, normalized
 log signature, and extracted evidence. Fetch the stored record with
 `GET /incidents/{incident_id}`. SQLite uses
 `sqlite:///./data/incidents.sqlite3` by default; set `DATABASE_URL` to override.
+
+## Phase 3 analysis demo
+
+Configure `HINDSIGHT_API_KEY`, `HINDSIGHT_BASE_URL`, `GROQ_API_KEY`, and
+`MODEL_NAME` in `.env`, then start the API and submit an alert followed by an
+analysis request:
+
+```powershell
+$incident = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/incidents `
+  -ContentType 'application/json' `
+  -Body '{"service":"payments-api","error":"database connection pool timeout","status":"degraded","logs":"Timeout waiting for a connection from the pool"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/incidents/$($incident.id)/analyze"
+```
+
+The analysis response shows retrieved memory text, suspected hypotheses,
+runbook recommendations, and whether cold-start or fallback behavior applied.
+Every recommendation is for engineer review; IncidentMind does not execute it.
 
 ## BAND Desktop (hackathon collaboration requirement)
 

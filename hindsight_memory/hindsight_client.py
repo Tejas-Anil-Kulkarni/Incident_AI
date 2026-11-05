@@ -30,6 +30,7 @@ class HindsightMemory:
         self._retries = max(0, retries)
         self._backoff_seconds = max(0.0, backoff_seconds)
         self._bank_ready = bank_ready
+        self.last_error: str | None = None
 
     @classmethod
     async def connect(cls, settings: Any, *, retries: int = 2, backoff_seconds: float = 0.25) -> "HindsightMemory":
@@ -49,6 +50,7 @@ class HindsightMemory:
             # Keep the application available during an outage; each operation
             # retries bank initialization and then uses its normal fallback.
             logger.warning("Hindsight bank initialization failed: %s", type(exc).__name__)
+            instance.last_error = "hindsight_unavailable"
         return instance
 
     async def retain_incident(self, incident: Incident) -> RetainResult:
@@ -67,8 +69,10 @@ class HindsightMemory:
             ))
             if getattr(response, "success", True) is False:
                 raise RuntimeError("Hindsight rejected the Retain request")
+            self.last_error = None
             return RetainResult(success=True, incident_id=incident.id)
         except Exception as exc:
+            self.last_error = "hindsight_unavailable"
             logger.warning("Hindsight Retain failed for incident %s: %s", incident.id, type(exc).__name__)
             return RetainResult(success=False, incident_id=incident.id, error="Hindsight memory is temporarily unavailable.")
 
@@ -81,9 +85,13 @@ class HindsightMemory:
                 bank_id=self.BANK_ID,
                 query=query,
                 max_tokens=max(256, min(8192, k * 1200)),
+                include_chunks=True,
+                max_chunk_tokens=1200,
             ))
+            self.last_error = None
             return adapt_recall(response, k)
         except Exception as exc:
+            self.last_error = "hindsight_unavailable"
             logger.warning("Hindsight Recall failed: %s", type(exc).__name__)
             return []
 
@@ -91,8 +99,10 @@ class HindsightMemory:
         try:
             await self._ensure_bank()
             response = await self._call(lambda: self._client.reflect(bank_id=self.BANK_ID, query=question))
+            self.last_error = None
             return adapt_reflect(response)
         except Exception as exc:
+            self.last_error = "hindsight_unavailable"
             logger.warning("Hindsight Reflect failed: %s", type(exc).__name__)
             return ReflectResult(
                 answer="Hindsight reflection is temporarily unavailable.",

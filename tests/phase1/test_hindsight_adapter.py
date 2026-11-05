@@ -54,3 +54,20 @@ async def test_recall_and_reflect_adapt_official_response_shapes() -> None:
     reflected = await memory.reflect("what happened with API timeouts?")
     assert recalled[0].raw_text == "api timeout memory"
     assert reflected.answer.startswith("One prior")
+
+
+@pytest.mark.asyncio
+async def test_recall_keeps_official_source_chunk_for_evidence_grounding() -> None:
+    response = SimpleNamespace(
+        results=[SimpleNamespace(text="sessions leaked", id="memory-1", chunk_id="chunk-1")],
+        chunks={"chunk-1": SimpleNamespace(text='IncidentMind incident record:\n{"id":"incident-7"}')},
+    )
+
+    class ChunkClient(FlakyClient):
+        def recall(self, **kwargs):
+            assert kwargs["include_chunks"] is True
+            return response
+
+    result = await HindsightMemory(ChunkClient(failures=0)).recall_similar("session leak")
+    assert result[0].raw_text == "sessions leaked"
+    assert '"id":"incident-7"' in result[0].source_text

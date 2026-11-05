@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from agent.root_cause_analyzer import AnalysisResponse, RootCauseAnalyzer, get_root_cause_analyzer
 from backend.database import get_db
 from backend.models import IncidentRecord
 from hindsight_memory.models import Incident
@@ -58,4 +59,19 @@ def get_incident(incident_id: str, db: Session = Depends(get_db)) -> Incident:
     if record is None:
         raise HTTPException(status_code=404, detail="Incident not found.")
     return Incident.model_validate(json.loads(record.payload_json))
+
+
+@router.post("/incidents/{incident_id}/analyze", response_model=AnalysisResponse, tags=["incidents"])
+async def analyze_incident(
+    incident_id: str,
+    db: Session = Depends(get_db),
+    analyzer: RootCauseAnalyzer = Depends(get_root_cause_analyzer),
+) -> AnalysisResponse:
+    """Return a grounded analysis for a previously ingested incident."""
+
+    record = db.scalar(select(IncidentRecord).where(IncidentRecord.id == incident_id))
+    if record is None:
+        raise HTTPException(status_code=404, detail="Incident not found.")
+    incident = Incident.model_validate(json.loads(record.payload_json))
+    return await analyzer.analyze(incident)
 

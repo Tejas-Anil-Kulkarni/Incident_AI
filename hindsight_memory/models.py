@@ -39,6 +39,7 @@ class RetainResult(BaseModel):
 class MemoryEvidence(BaseModel):
     text: str
     raw_text: str
+    source_text: str | None = None
     memory_id: str | None = None
     relevance: float | None = None
     incident_id: str | None = None

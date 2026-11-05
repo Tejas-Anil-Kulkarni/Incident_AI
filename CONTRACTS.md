@@ -23,7 +23,7 @@ clear Pydantic validation error when any required value is absent.
 
 - `Incident` is the validated incident-memory payload, with a stable string ID and explicit outcome enum.
 - `MemoryStore.retain_incident(incident)` returns `RetainResult`; service errors are represented without leaking secrets.
-- `MemoryStore.recall_similar(query, k)` returns `list[MemoryEvidence]`, including the exact raw Hindsight text.
+- `MemoryStore.recall_similar(query, k)` returns `list[MemoryEvidence]`, including the exact raw Hindsight text and optional source chunk when the official Recall API provides it.
 - `MemoryStore.reflect(question)` returns `ReflectResult` with answer text and any available raw evidence.
 - `FakeMemory` implements the same async interface for unit tests only; production construction always selects the official Hindsight client.
 - `python -m hindsight_memory.demo` runs a retain-then-recall example against configured Hindsight.
@@ -37,4 +37,14 @@ clear Pydantic validation error when any required value is absent.
 - Incident records are stored in SQLite through SQLAlchemy. `DATABASE_URL` may override the default `sqlite:///./data/incidents.sqlite3`.
 - Log signatures normalize UUIDs, IP addresses, long hex identifiers, keyed IDs, and numeric path IDs so equivalent messages can be matched.
 - The Phase 1 `MemoryStore` methods and `/health` response remain unchanged; Phase 2 incidents remain valid inputs to `retain_incident`.
+
+## Phase 3 — Grounded analysis and runbooks
+
+- `POST /incidents/{incident_id}/analyze` is additive and returns an `AnalysisResponse` containing validated hypotheses, recommended steps, a runbook reference, recalled evidence, and explicit cold-start/fallback status.
+- Each hypothesis is marked `suspected`; only IDs from recalled evidence are retained as citations. Unrecalled IDs are removed and reported in `warnings`.
+- A cold start returns the exact notice `No relevant experience found in memory.` with runbook-only recommendations and does not ask the LLM to invent historical context.
+- Groq responses are parsed into a Pydantic `AnalysisDraft`; malformed or tool-call-shaped output receives one repair attempt, then deterministic runbook-only fallback.
+- Groq calls use a timeout and bounded transient-error retries. Hindsight errors preserve the route with an explicit unavailable-memory response.
+- Categories map to Markdown files in `runbooks/`; successful steps are merged only from recalled incidents whose stored outcome is `resolved`.
+- Recommendations require engineer review and are never executed by this route. `/health`, `/incidents`, `/incidents/{id}`, and Phase 1 memory interfaces are unchanged.
 
