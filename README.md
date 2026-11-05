@@ -7,10 +7,10 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 ## Current status
 
-**Phase 5 complete:** the FastAPI baseline, official Hindsight memory wrapper,
+**Phase 6 complete:** the FastAPI baseline, official Hindsight memory wrapper,
 incident ingestion and grounded analysis, engineer feedback, Replay Lab,
-Anti-Runbooks, and cached Reflect Insights are available. The dashboard and
-later hardening phase remain.
+Anti-Runbooks, cached Reflect Insights, and Streamlit dashboard are available.
+Phase 7 stretch features and Phase 8 hardening remain.
 
 ## 10-line implementation plan
 
@@ -152,6 +152,22 @@ returns a Hindsight Reflect result cached in SQLite for five minutes. If
 Hindsight Reflect is unavailable, it returns a clearly labeled fallback
 computed only from persisted engineer feedback. Set `refresh: true` to bypass
 the cache. Run `pytest` for the complete compatibility suite.
+
+## Phase 6 dashboard
+
+Start the FastAPI backend and Streamlit dashboard in separate terminals:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn main:app --reload
+.\.venv\Scripts\python.exe -m streamlit run frontend/dashboard.py
+```
+
+Set `INCIDENTMIND_API_URL` if the API is not at `http://127.0.0.1:8000`.
+The dashboard shows the incident feed and detail, suspected causes, Hindsight
+evidence, recommendations, Anti-Runbook warnings, engineer feedback, Replay Lab
+comparison/chart, and feedback/confirmed-retain counts. Its API client talks
+only to FastAPI. See [tests/phase6/MANUAL.md](tests/phase6/MANUAL.md) for the
+demo screenshot checklist and empty/error-state checks.
 
 ## BAND Desktop (hackathon collaboration requirement)
 

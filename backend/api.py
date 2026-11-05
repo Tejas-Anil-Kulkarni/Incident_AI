@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -39,6 +39,17 @@ router = APIRouter()
 class HealthResponse(BaseModel):
     status: str
     timestamp: datetime
+
+
+class IncidentFeedItem(BaseModel):
+    incident: Incident
+    feedback_outcome: str | None = None
+    status: str
+
+
+class MemoryStatsResponse(BaseModel):
+    feedback_records: int
+    retained_in_hindsight: int
 
 
 @router.get("/health", response_model=HealthResponse, status_code=200, tags=["system"])
@@ -77,6 +88,44 @@ def get_incident(incident_id: str, db: Session = Depends(get_db)) -> Incident:
     if record is None:
         raise HTTPException(status_code=404, detail="Incident not found.")
     return Incident.model_validate(json.loads(record.payload_json))
+
+
+@router.get("/incidents", response_model=list[IncidentFeedItem], tags=["incidents"])
+def list_incidents(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+) -> list[IncidentFeedItem]:
+    """Read-only, newest-first incident feed for the dashboard."""
+
+    records = list(db.scalars(
+        select(IncidentRecord).order_by(IncidentRecord.created_at.desc()).offset(offset).limit(limit)
+    ).all())
+    feedback_rows = list(db.scalars(
+        select(FeedbackRecord).where(FeedbackRecord.incident_id.in_([item.id for item in records]))
+    ).all()) if records else []
+    outcomes = {item.incident_id: item.outcome for item in feedback_rows}
+    result = []
+    for record in records:
+        incident = Incident.model_validate_json(record.payload_json)
+        outcome = outcomes.get(record.id)
+        result.append(IncidentFeedItem(
+            incident=incident,
+            feedback_outcome=outcome,
+            status="verified" if outcome else "open",
+        ))
+    return result
+
+
+@router.get("/stats/memory", response_model=MemoryStatsResponse, tags=["learning"])
+def get_memory_stats(db: Session = Depends(get_db)) -> MemoryStatsResponse:
+    """Report locally recorded feedback and confirmed Hindsight retain results."""
+
+    rows = list(db.scalars(select(FeedbackRecord)).all())
+    return MemoryStatsResponse(
+        feedback_records=len(rows),
+        retained_in_hindsight=sum(1 for item in rows if item.memory_retained),
+    )
 
 
 @router.post("/incidents/{incident_id}/analyze", response_model=AnalysisResponse, tags=["incidents"])

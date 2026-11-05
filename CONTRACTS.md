@@ -66,3 +66,11 @@ clear Pydantic validation error when any required value is absent.
 - `reflect_insight_cache` is created with the application database tables. Cached fallback answers are timestamped and cached as well.
 - Phase 0–4 routes and response fields remain compatible; Phase 5 adds routes and opt-in fields only.
 
+## Phase 6 — Dashboard
+
+- `GET /incidents?limit=50&offset=0` is a read-only newest-first feed returning incident payloads with optional feedback outcome and open/verified status. `limit` is bounded from 1 to 200.
+- `GET /stats/memory` returns `feedback_records` and `retained_in_hindsight`, counted from persisted engineer feedback and successful Hindsight Retain responses; it is not a live bank inventory.
+- The Streamlit dashboard calls only FastAPI through `frontend.api_client.IncidentMindApi`; it does not connect to Hindsight. `INCIDENTMIND_API_URL` may set the backend base URL; default is `http://127.0.0.1:8000`.
+- The UI adds Incident Feed and Detail, suspected-cause and evidence panels, engineer feedback, Anti-Runbook warnings, Replay Lab comparisons/chart, outcome summaries, and confirmed-retain counts. API failure and empty states are rendered in the UI.
+- Phase 0–5 contracts are unchanged. Phase 6's backend additions are read-only.
+
