@@ -7,10 +7,11 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 ## Current status
 
-**Phase 0 complete:** the FastAPI skeleton, structured logs, environment
-configuration, health check, and pytest harness are available. Memory,
-incident ingestion, and dashboard features are deliberately deferred until
-their respective gated phases.
+**Phase 2 complete:** the FastAPI baseline and health contract, official
+Hindsight memory wrapper, alert ingestion, deterministic log analysis and
+classification, and SQLite incident persistence are available. AI analysis,
+feedback learning, innovation features, and the dashboard remain for their
+later gated phases.
 
 ## 10-line implementation plan
 
@@ -81,6 +82,21 @@ With a Hindsight service reachable at `HINDSIGHT_BASE_URL` and its API key in
 similar evidence. To load the bundled, explicitly synthetic sample incidents,
 run `python -m hindsight_memory.seed`. Unit tests use `FakeMemory`; production
 code always constructs `HindsightMemory` with the official SDK.
+
+## Phase 2 incident ingestion
+
+Start the API with `uvicorn main:app --reload`, then post an alert:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/incidents `
+  -ContentType 'application/json' `
+  -Body '{"service":"payments-api","error":"database connection pool exhausted","cpu_percent":91,"failed_requests":24,"status":"degraded","logs":"sqlalchemy.exc.TimeoutError: pool exhausted"}'
+```
+
+The response includes a generated incident ID, category, severity, normalized
+log signature, and extracted evidence. Fetch the stored record with
+`GET /incidents/{incident_id}`. SQLite uses
+`sqlite:///./data/incidents.sqlite3` by default; set `DATABASE_URL` to override.
 
 ## BAND Desktop (hackathon collaboration requirement)
 

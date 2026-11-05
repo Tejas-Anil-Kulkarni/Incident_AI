@@ -29,3 +29,12 @@ clear Pydantic validation error when any required value is absent.
 - `python -m hindsight_memory.demo` runs a retain-then-recall example against configured Hindsight.
 - `GET /health` remains unchanged from Phase 0.
 
+## Phase 2 — Incident ingestion and log analysis
+
+- `POST /incidents` accepts an alert with `service` and optional `error`, `cpu_percent`, `failed_requests`, `status`, `logs`, and `occurred_at`; it returns a Phase 1 `Incident` with additive category, signature, and extracted stack frames.
+- `GET /incidents/{incident_id}` returns the persisted Phase 1-compatible `Incident`, or HTTP `404` when the ID is unknown.
+- Alert validation uses Pydantic; invalid fields return FastAPI's standard HTTP `422` response.
+- Incident records are stored in SQLite through SQLAlchemy. `DATABASE_URL` may override the default `sqlite:///./data/incidents.sqlite3`.
+- Log signatures normalize UUIDs, IP addresses, long hex identifiers, keyed IDs, and numeric path IDs so equivalent messages can be matched.
+- The Phase 1 `MemoryStore` methods and `/health` response remain unchanged; Phase 2 incidents remain valid inputs to `retain_incident`.
+

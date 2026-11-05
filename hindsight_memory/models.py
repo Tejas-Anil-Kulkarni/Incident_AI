@@ -16,11 +16,14 @@ class Incident(BaseModel):
     error: str = Field(min_length=1, max_length=10_000)
     severity: Literal["critical", "high", "medium", "low", "unknown"] = "unknown"
     symptoms: list[str] = Field(default_factory=list)
+    top_stack_frames: list[str] = Field(default_factory=list)
     logs_excerpt: str = Field(default="", max_length=50_000)
     suspected_cause: str | None = None
     verified_cause: str | None = None
     resolution_steps: list[str] = Field(default_factory=list)
     outcome: Literal["resolved", "failed", "partial", "unknown"] = "unknown"
+    category: Literal["Database", "API", "Overload", "Network", "Deployment", "Performance"] | None = None
+    signature: str | None = Field(default=None, max_length=500)
     occurred_at: datetime | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: datetime | None = None
