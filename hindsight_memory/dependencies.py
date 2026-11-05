@@ -18,7 +18,7 @@ async def get_memory_store() -> AsyncIterator[MemoryStore | None]:
         yield None
         return
     try:
-        memory = await HindsightMemory.connect(settings)
+        memory = await HindsightMemory.connect(settings, bank_id=settings.hindsight_bank_id)
     except Exception as exc:
         logger.warning("Hindsight setup unavailable: %s", type(exc).__name__)
         yield None

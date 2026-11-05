@@ -16,7 +16,9 @@ extend them only additively.
 ### Configuration
 
 `config.settings.Settings` loads `HINDSIGHT_API_KEY`, `HINDSIGHT_BASE_URL`,
-`GROQ_API_KEY`, and `MODEL_NAME` from the environment or `.env`. It raises a
+`GROQ_API_KEY`, and `MODEL_NAME` from the environment or `.env`. Optional
+`HINDSIGHT_BANK_ID` selects the memory bank and defaults to `incidentmind`.
+It raises a
 clear Pydantic validation error when any required value is absent.
 
 ## Phase 1 — Hindsight memory
@@ -83,4 +85,13 @@ clear Pydantic validation error when any required value is absent.
 - `GET /incidents/{incident_id}/staleness` compares verified incidents for the same service and matching signature/symptoms. Contradictions return both incident IDs, both causes, timestamps, and `possibly outdated` status; neither memory is deleted or hidden. Synthetic incidents are not conflict sources.
 - `POST /innovation/deploy-risk` recalls change-related evidence through Hindsight. It separates historical and synthetic evidence and reports no probability or deploy/no-deploy decision. Unavailable memory returns an explicit empty result.
 - All Phase 0–6 contracts remain compatible; all Phase 7 capabilities are additive and default off.
+
+## Phase 8 — Hardening and submission
+
+- Alert logs are validated up to 200,000 characters; `Incident.logs_excerpt` remains bounded to 50,000 characters. Unicode input is preserved.
+- Groq rate-limit responses (HTTP 429) use bounded retries with backoff; exhausted calls follow the existing deterministic runbook fallback.
+- `HINDSIGHT_BANK_ID` is optional and defaults to `incidentmind`, preserving the earlier default. It allows an isolated demo bank without removing existing memory.
+- `Dockerfile` builds the API image; `docker-compose.yml` runs API and dashboard with a persistent SQLite volume. Container deployment requires a configured `.env` file and reachable Hindsight/Groq services for integration features.
+- `DEMO_SCRIPT.md` documents an eight-step recording flow. Full unit, API, dashboard, and prior-phase contract tests remain part of `pytest -q`.
+- The final release tag is `v1.0`; the phase tag `phase-8` points to the same release commit.
 

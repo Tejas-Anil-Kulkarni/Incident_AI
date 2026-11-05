@@ -7,12 +7,13 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 ## Current status
 
-**Phase 7 complete:** the FastAPI baseline, official Hindsight memory wrapper,
+**Phase 8 complete:** the FastAPI baseline, official Hindsight memory wrapper,
 incident ingestion and grounded analysis, engineer feedback, Replay Lab,
 Anti-Runbooks, cached Reflect Insights, and Streamlit dashboard are available.
 Default-off Chaos Dojo, memory staleness detection, and deploy-risk evidence
 lookup are also available. Synthetic and real feedback counts are displayed
-separately. Phase 8 hardening remains.
+separately. Edge-case and sequential load checks, Docker Compose, and the
+record-ready demo script are included.
 
 ## 10-line implementation plan
 
@@ -27,7 +28,31 @@ separately. Phase 8 hardening remains.
 9. Add opt-in synthetic chaos, staleness/conflict, and deploy-risk features.
 10. Harden, document, containerize, test from a fresh clone, and tag `v1.0`.
 
-## Hindsight verification and intended integration
+## Architecture
+
+```mermaid
+flowchart LR
+    Operator[Engineer / On-call] --> UI[Streamlit dashboard]
+    UI -->|HTTP JSON only| API[FastAPI]
+    Alert[Alert source] --> API
+    API --> Incident[Incident processing]
+    API --> Agent[Grounded RCA agent]
+    API --> Learning[Feedback and outcome stats]
+    Incident --> SQLite[(SQLite incidents and feedback)]
+    Learning --> SQLite
+    Agent -->|official Retain / Recall / Reflect SDK| Hindsight[Hindsight bank]
+    Learning -->|verified incident Retain| Hindsight
+    Agent -->|structured analysis| Groq[Groq LLM]
+    API --> Innovation[Replay / Anti-Runbooks / Reflect / Phase 7]
+    Innovation --> Hindsight
+    Innovation --> SQLite
+```
+
+The dashboard calls only FastAPI. SQLite stores application incidents,
+engineer feedback, and the Reflect cache. Hindsight is the only memory layer.
+Groq produces structured analysis; deterministic runbooks remain the fallback.
+
+## How Hindsight is used
 
 Before implementation, the official documentation and repository source were
 inspected, including the Python client implementation and its operation tests.
@@ -46,11 +71,27 @@ adapts official response models to IncidentMind typed evidence results; it does
 not implement vector search, fact extraction, graph retrieval, or reflection.
 Hindsight remains the only memory layer.
 
+The application calls the official SDK through
+[hindsight_client.py](hindsight_memory/hindsight_client.py): `create_bank`
+initializes or retrieves the configured bank, `retain` stores an incident,
+`recall` retrieves relevant evidence, and `reflect` answers history questions.
+The payload adapter is in [memory_retain.py](hindsight_memory/memory_retain.py),
+and Recall and Reflect responses are adapted in
+[memory_recall.py](hindsight_memory/memory_recall.py) and
+[memory_reflect.py](hindsight_memory/memory_reflect.py). Synchronous SDK calls
+run in worker threads behind bounded timeouts and retries. Groq HTTP 429 rate
+limits are retried with backoff; exhausted retries use the deterministic
+runbook fallback.
+
+`HINDSIGHT_BANK_ID` selects the memory bank and defaults to `incidentmind`.
+Use a new ID such as `incidentmind-demo` for a clean recording bank without
+deleting existing data. Replay Lab creates an isolated bank per run.
+
 ## Hindsight assumptions to verify in Phase 1
 
 - The installed `hindsight-client` version matches the documented client API.
 - Cloud authentication accepts `api_key` as the documented bearer token.
-- The configured Hindsight endpoint supports bank creation and the `incidentmind` bank ID.
+- The configured Hindsight endpoint supports bank creation and the configured bank ID.
 - `create_bank` is idempotent enough for create-or-retrieve behavior, or the
   official bank-list/get API must be used first.
 - Retain response, Recall `results`, and Reflect response/citation fields match
@@ -76,6 +117,30 @@ credentials are populated. Run tests with:
 pytest
 ```
 
+The integration tests are marked separately and skip if credentials are
+missing:
+
+```powershell
+pytest -m integration -q
+```
+
+### Docker Compose
+
+After copying and configuring `.env`, start the API and dashboard:
+
+```powershell
+docker compose up --build
+```
+
+Open `http://localhost:8501` for the dashboard and `http://localhost:8000/docs`
+for the API. SQLite data persists in the `incidentmind-data` volume. For
+self-hosted Hindsight running on the host machine, set `HINDSIGHT_BASE_URL` to
+an address reachable from the containers, such as
+`http://host.docker.internal:8888`; `localhost` inside a container refers to
+that container. `docker compose down` stops the services and keeps the volume.
+Use `docker compose down -v` only when you intentionally want to remove local
+incident data.
+
 ## Phase 1 memory demo
 
 With a Hindsight service reachable at `HINDSIGHT_BASE_URL` and its API key in
@@ -83,6 +148,8 @@ With a Hindsight service reachable at `HINDSIGHT_BASE_URL` and its API key in
 similar evidence. To load the bundled, explicitly synthetic sample incidents,
 run `python -m hindsight_memory.seed`. Unit tests use `FakeMemory`; production
 code always constructs `HindsightMemory` with the official SDK.
+
+For the full record-ready eight-step story, see [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
 
 ## Phase 2 incident ingestion
 
@@ -194,6 +261,17 @@ synthetic retain counts without changing the Phase 6 memory-stats contract.
 Review the `CHAOS_DOJO_ENABLED`, `STALENESS_ENABLED`,
 and `DEPLOY_RISK_ENABLED` flags before exposing these experimental endpoints.
 
+## Phase 8 edge cases and load check
+
+Incident logs accept up to 200,000 characters and the persisted evidence excerpt
+is capped at 50,000 characters. Unicode is preserved. Exercise the 50 sequential
+incident flow and run the complete suite with:
+
+```powershell
+pytest tests/phase8 -q
+pytest -q
+```
+
 ## BAND Desktop (hackathon collaboration requirement)
 
 Band Desktop (formerly Jam) is installed separately from this Python app. The
@@ -209,7 +287,11 @@ IncidentMind’s runtime, memory system, or production data path.
 - Recommendations require explicit engineer approval before any simulated or
   logged action in later phases; IncidentMind never executes recovery actions.
 - Secrets belong only in environment variables. `.env` is ignored by Git.
-- No Hindsight or Groq credentials are available in this workspace, so Phase 0
-  cannot verify a live integration. That verification is a Phase 1 integration
-  gate when credentials are supplied.
+- Hindsight and Groq credentials are not configured in this workspace, so live
+  cloud integration tests are skipped here. The official SDK adapters have
+  unit and contract coverage; run `pytest -m integration -q` when services and
+  credentials are available.
+- Rate-limit retries are bounded. If a provider continues returning 429,
+  IncidentMind uses its deterministic fallback rather than claiming an
+  unverified analysis.
 

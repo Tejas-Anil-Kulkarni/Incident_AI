@@ -8,7 +8,8 @@ from hindsight_memory.models import Incident
 
 
 async def main() -> None:
-    memory = await HindsightMemory.connect(get_settings())
+    settings = get_settings()
+    memory = await HindsightMemory.connect(settings, bank_id=settings.hindsight_bank_id)
     incident = Incident(
         id="demo-connection-pool-001",
         service="payments-api",

@@ -18,6 +18,13 @@ class Settings(BaseSettings):
 
     hindsight_api_key: SecretStr = Field(validation_alias="HINDSIGHT_API_KEY")
     hindsight_base_url: HttpUrl = Field(validation_alias="HINDSIGHT_BASE_URL")
+    hindsight_bank_id: str = Field(
+        default="incidentmind",
+        validation_alias="HINDSIGHT_BANK_ID",
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
     groq_api_key: SecretStr = Field(validation_alias="GROQ_API_KEY")
     model_name: str = Field(validation_alias="MODEL_NAME", min_length=1)
     chaos_dojo_enabled: bool = Field(default=False, validation_alias="CHAOS_DOJO_ENABLED")

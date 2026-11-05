@@ -12,7 +12,8 @@ from hindsight_memory.models import Incident
 async def seed() -> None:
     records_path = Path(__file__).resolve().parents[1] / "data" / "sample_incidents.json"
     records = [Incident.model_validate(item) for item in json.loads(records_path.read_text(encoding="utf-8"))]
-    memory = await HindsightMemory.connect(get_settings())
+    settings = get_settings()
+    memory = await HindsightMemory.connect(settings, bank_id=settings.hindsight_bank_id)
     for incident in records:
         result = await memory.retain_incident(incident)
         print(f"{incident.id}: {'retained' if result.success else result.error}")

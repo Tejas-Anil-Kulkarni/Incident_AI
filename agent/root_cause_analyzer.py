@@ -221,7 +221,7 @@ async def get_root_cause_analyzer():
     memory: HindsightMemory | None = None
     llm: GroqChatModel | None = None
     try:
-        memory = await HindsightMemory.connect(settings)
+        memory = await HindsightMemory.connect(settings, bank_id=settings.hindsight_bank_id)
     except Exception as exc:
         logger.warning("Hindsight setup unavailable for analysis: %s", type(exc).__name__)
     try:
