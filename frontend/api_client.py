@@ -1,4 +1,4 @@
-"""Small synchronous HTTP client; the dashboard never connects to Hindsight."""
+"""Legacy synchronous HTTP client; the frontend talks only to FastAPI."""
 
 import json
 import os

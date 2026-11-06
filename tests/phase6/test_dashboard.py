@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -5,7 +6,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from streamlit.testing.v1 import AppTest
 
 import backend.database as database
 from backend.database import Base, get_db
@@ -56,6 +56,11 @@ def test_dashboard_read_only_endpoints_report_feed_and_confirmed_memory(client):
     })
     assert feedback.status_code == 200
     assert feedback.json()["memory_retained"] is True
+    verification = client.get(f"/incidents/{older['id']}/feedback")
+    assert verification.status_code == 200
+    assert verification.json()[0]["verified_cause"] == "unclosed sessions"
+    assert verification.json()[0]["steps_taken"] == ["Close sessions"]
+    assert verification.json()[0]["memory_retained"] is True
 
     feed = client.get("/incidents?limit=1")
     assert feed.status_code == 200
@@ -69,16 +74,20 @@ def test_dashboard_read_only_endpoints_report_feed_and_confirmed_memory(client):
 def test_dashboard_read_only_endpoints_have_honest_empty_state(client):
     assert client.get("/incidents").json() == []
     assert client.get("/stats/memory").json() == {"feedback_records": 0, "retained_in_hindsight": 0}
+    incident = ingest(client)
+    assert client.get(f"/incidents/{incident['id']}/feedback").json() == []
+    assert client.get("/incidents/unknown/feedback").status_code == 404
 
 
-def test_dashboard_app_renders_sections_and_api_error_state():
-    dashboard_path = Path(__file__).resolve().parents[2] / "frontend" / "dashboard.py"
-    app_test = AppTest.from_file(dashboard_path, default_timeout=30).run(timeout=30)
-    assert not app_test.exception
-    assert "Incident feed" in [item.value for item in app_test.header]
-    assert "Replay Lab" in [item.label for item in app_test.tabs]
-    assert "Learning and memory" in [item.value for item in app_test.header]
-    assert any("Cannot reach IncidentMind API" in item.value for item in app_test.error)
+def test_dashboard_react_entrypoint_and_fastapi_client_contract():
+    frontend = Path(__file__).resolve().parents[2] / "frontend"
+    manifest = json.loads((frontend / "package.json").read_text(encoding="utf-8"))
+    source = (frontend / "src" / "api.js").read_text(encoding="utf-8")
+    html = (frontend / "index.html").read_text(encoding="utf-8")
+    assert manifest["scripts"]["build"] == "vite build"
+    assert '<div id="root"></div>' in html
+    for route in ("/incidents?limit=", "/incidents/${encodeURIComponent(id)}/feedback", "/stats/memory", "/stats/memory/origins", "/stats/outcomes", "/innovation/replay", "/innovation/insights"):
+        assert route in source
 
 
 def test_api_client_formats_backend_errors(monkeypatch):

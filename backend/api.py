@@ -25,6 +25,7 @@ from learning.feedback_processor import (
     ActionExecutionRequest,
     ActionSimulationResponse,
     FeedbackResponse,
+    FeedbackRecordResponse,
     FeedbackSubmission,
     record_feedback,
 )
@@ -99,6 +100,29 @@ def get_incident(incident_id: str, db: Session = Depends(get_db)) -> Incident:
     if record is None:
         raise HTTPException(status_code=404, detail="Incident not found.")
     return Incident.model_validate(json.loads(record.payload_json))
+
+
+@router.get("/incidents/{incident_id}/feedback", response_model=list[FeedbackRecordResponse], tags=["incidents"])
+def get_incident_feedback(incident_id: str, db: Session = Depends(get_db)) -> list[FeedbackRecordResponse]:
+    """Return persisted engineer verifications for the incident, newest first."""
+
+    if db.get(IncidentRecord, incident_id) is None:
+        raise HTTPException(status_code=404, detail="Incident not found.")
+    rows = list(db.scalars(
+        select(FeedbackRecord)
+        .where(FeedbackRecord.incident_id == incident_id)
+        .order_by(FeedbackRecord.created_at.desc())
+    ).all())
+    return [FeedbackRecordResponse(
+        feedback_id=row.feedback_id,
+        incident_id=row.incident_id,
+        verified_cause=row.verified_cause,
+        outcome=row.outcome,
+        steps_taken=json.loads(row.steps_json),
+        notes=row.notes,
+        memory_retained=row.memory_retained,
+        created_at=row.created_at,
+    ) for row in rows]
 
 
 @router.get("/incidents", response_model=list[IncidentFeedItem], tags=["incidents"])

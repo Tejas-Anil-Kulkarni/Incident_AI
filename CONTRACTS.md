@@ -72,8 +72,9 @@ clear Pydantic validation error when any required value is absent.
 
 - `GET /incidents?limit=50&offset=0` is a read-only newest-first feed returning incident payloads with optional feedback outcome and open/verified status. `limit` is bounded from 1 to 200.
 - `GET /stats/memory` returns `feedback_records` and `retained_in_hindsight`, counted from persisted engineer feedback and successful Hindsight Retain responses; it is not a live bank inventory.
-- The Streamlit dashboard calls only FastAPI through `frontend.api_client.IncidentMindApi`; it does not connect to Hindsight. `INCIDENTMIND_API_URL` may set the backend base URL; default is `http://127.0.0.1:8000`.
-- The UI adds Incident Feed and Detail, suspected-cause and evidence panels, engineer feedback, Anti-Runbook warnings, Replay Lab comparisons/chart, outcome summaries, and confirmed-retain counts. API failure and empty states are rendered in the UI.
+- The React + Vite frontend calls only FastAPI; the browser does not connect to Hindsight. During development Vite proxies `/api/*` to FastAPI; in production FastAPI serves `frontend/dist` from the same origin.
+- The UI provides Incident Desk and Detail, suspected and engineer-verified cause panels, memory evidence, engineer feedback, Anti-Runbook warnings, Replay Lab comparisons/chart, Reflect insights, and confirmed-retain counts. API failure and empty states are rendered in the UI.
+- `GET /incidents/{incident_id}/feedback` is an additive read-only route returning persisted engineer verifications newest first, including confirmed cause, steps, outcome, notes, Retain status, and timestamp. Unknown incident IDs return HTTP `404`.
 - Phase 0–5 contracts are unchanged. Phase 6's backend additions are read-only.
 
 ## Phase 7 — Stretch features
@@ -91,7 +92,7 @@ clear Pydantic validation error when any required value is absent.
 - Alert logs are validated up to 200,000 characters; `Incident.logs_excerpt` remains bounded to 50,000 characters. Unicode input is preserved.
 - Groq rate-limit responses (HTTP 429) use bounded retries with backoff; exhausted calls follow the existing deterministic runbook fallback.
 - `HINDSIGHT_BANK_ID` is optional and defaults to `incidentmind`, preserving the earlier default. It allows an isolated demo bank without removing existing memory.
-- `Dockerfile` builds the API image; `docker-compose.yml` runs API and dashboard with a persistent SQLite volume. Container deployment requires a configured `.env` file and reachable Hindsight/Groq services for integration features.
+- `Dockerfile` builds the Vite frontend and FastAPI image; `docker-compose.yml` serves both through FastAPI with a persistent SQLite volume. Container deployment requires a configured `.env` file and reachable Hindsight/Groq services for integration features.
 - `DEMO_SCRIPT.md` documents an eight-step recording flow. Full unit, API, dashboard, and prior-phase contract tests remain part of `pytest -q`.
 - The final release tag is `v1.0`; the phase tag `phase-8` points to the same release commit.
 

@@ -1,1 +1,1 @@
-"""Streamlit frontend introduced in Phase 6."""
+"""Legacy Python API client retained for compatibility checks."""

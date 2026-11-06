@@ -13,12 +13,12 @@ verified-feedback, retrieval, replay, and safety story.
 **Say:** “IncidentMind starts with no relevant memory. Recommendations are
 runbook-based until an engineer verifies a real outcome.”
 
-**Show:** Run the API and dashboard in separate terminals; open the empty
-dedicated bank's Incident Feed.
+**Show:** Run the API and Vite in separate terminals; open the empty dedicated
+bank's Incident Desk.
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn main:app --reload
-.\.venv\Scripts\python.exe -m streamlit run frontend/dashboard.py
+pnpm --dir frontend dev
 ```
 
 ## 2. Submit the first incident (6–13 sec)

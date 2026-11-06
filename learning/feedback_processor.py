@@ -39,6 +39,17 @@ class FeedbackResponse(BaseModel):
     warning: str | None = None
 
 
+class FeedbackRecordResponse(BaseModel):
+    feedback_id: str
+    incident_id: str
+    verified_cause: str
+    outcome: Literal["resolved", "failed", "partial"]
+    steps_taken: list[str]
+    notes: str
+    memory_retained: bool
+    created_at: datetime
+
+
 class ActionApprovalSubmission(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

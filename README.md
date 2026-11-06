@@ -9,7 +9,7 @@ incident outcomes, recall relevant evidence, and reflect on recurring patterns.
 
 **Phase 8 complete:** the FastAPI baseline, official Hindsight memory wrapper,
 incident ingestion and grounded analysis, engineer feedback, Replay Lab,
-Anti-Runbooks, cached Reflect Insights, and Streamlit dashboard are available.
+Anti-Runbooks, cached Reflect Insights, and React + Vite dashboard are available.
 Default-off Chaos Dojo, memory staleness detection, and deploy-risk evidence
 lookup are also available. Synthetic and real feedback counts are displayed
 separately. Edge-case and sequential load checks, Docker Compose, and the
@@ -24,7 +24,7 @@ record-ready demo script are included.
 5. Capture engineer verification and retain real outcomes for future learning.
 6. Add Replay Lab to compare recommendations with and without memory.
 7. Surface failed fixes through anti-runbook warnings and use Hindsight Reflect insights.
-8. Build a Streamlit UI that calls only the FastAPI backend.
+8. Build a React + Vite UI that calls only the FastAPI backend.
 9. Add opt-in synthetic chaos, staleness/conflict, and deploy-risk features.
 10. Harden, document, containerize, test from a fresh clone, and tag `v1.0`.
 
@@ -32,7 +32,7 @@ record-ready demo script are included.
 
 ```mermaid
 flowchart LR
-    Operator[Engineer / On-call] --> UI[Streamlit dashboard]
+    Operator[Engineer / On-call] --> UI[React + Vite dashboard]
     UI -->|HTTP JSON only| API[FastAPI]
     Alert[Alert source] --> API
     API --> Incident[Incident processing]
@@ -126,13 +126,13 @@ pytest -m integration -q
 
 ### Docker Compose
 
-After copying and configuring `.env`, start the API and dashboard:
+After copying and configuring `.env`, start the API and bundled dashboard:
 
 ```powershell
 docker compose up --build
 ```
 
-Open `http://localhost:8501` for the dashboard and `http://localhost:8000/docs`
+Open `http://localhost:8000` for the dashboard and `http://localhost:8000/docs`
 for the API. SQLite data persists in the `incidentmind-data` volume. For
 self-hosted Hindsight running on the host machine, set `HINDSIGHT_BASE_URL` to
 an address reachable from the containers, such as
@@ -222,21 +222,41 @@ Hindsight Reflect is unavailable, it returns a clearly labeled fallback
 computed only from persisted engineer feedback. Set `refresh: true` to bypass
 the cache. Run `pytest` for the complete compatibility suite.
 
-## Phase 6 dashboard
+## Frontend dashboard
 
-Start the FastAPI backend and Streamlit dashboard in separate terminals:
+The React + Vite application lives in `frontend/`. It calls the FastAPI JSON
+routes only; the browser never calls Hindsight directly. The Incident Desk
+shows the feed, incident details, suspected hypotheses, retrieved memory
+evidence, Anti-Runbook warnings, and engineer feedback. Replay Lab compares
+the same verified incident sequence with memory disabled and enabled. Learning
+& Memory reports persisted counts and can ask Hindsight Reflect for insights.
+
+For local development, start FastAPI and Vite in separate terminals:
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn main:app --reload
-.\.venv\Scripts\python.exe -m streamlit run frontend/dashboard.py
+pnpm --dir frontend install
+pnpm --dir frontend dev
 ```
 
-Set `INCIDENTMIND_API_URL` if the API is not at `http://127.0.0.1:8000`.
-The dashboard shows the incident feed and detail, suspected causes, Hindsight
-evidence, recommendations, Anti-Runbook warnings, engineer feedback, Replay Lab
-comparison/chart, and feedback/confirmed-retain counts. Its API client talks
-only to FastAPI. See [tests/phase6/MANUAL.md](tests/phase6/MANUAL.md) for the
-demo screenshot checklist and empty/error-state checks.
+Open `http://127.0.0.1:5173`. Vite proxies `/api/*` to
+`INCIDENTMIND_API_URL`, which defaults to `http://127.0.0.1:8000`; set that
+environment variable if FastAPI runs elsewhere.
+
+Run the frontend API-client tests with `pnpm --dir frontend test`.
+
+For production, build the frontend before starting FastAPI. FastAPI serves the
+compiled assets from the same origin at `http://127.0.0.1:8000`:
+
+```powershell
+pnpm --dir frontend install
+pnpm --dir frontend build
+.\.venv\Scripts\python.exe -m uvicorn main:app
+```
+
+`docker compose up --build` builds the Vite app into the image and serves it
+through FastAPI at port 8000. See [tests/phase6/MANUAL.md](tests/phase6/MANUAL.md)
+for the dashboard flow checklist.
 
 ## Phase 7 stretch features
 
